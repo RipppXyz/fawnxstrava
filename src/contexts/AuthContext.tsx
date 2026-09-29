@@ -7,6 +7,7 @@ interface AuthContextType {
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string, displayName: string) => Promise<void>;
+  loginWithGithub: (code: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -52,6 +53,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await refreshUser();
   };
 
+  const loginWithGithub = async (githubData: any) => {
+    const data = await api.auth.github(githubData);
+    localStorage.setItem('token', data.token);
+    setIsAuthenticated(true);
+    await refreshUser();
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     setIsAuthenticated(false);
@@ -59,7 +67,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated, user, loading, login, register, logout, refreshUser }}>
+    <AuthContext.Provider value={{ isAuthenticated, user, loading, login, register, loginWithGithub, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

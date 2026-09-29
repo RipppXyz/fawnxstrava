@@ -33,6 +33,11 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ username, email, password, displayName }),
       }),
+    github: (data: any) =>
+      api.request('/auth/github', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
   },
 
   users: {
