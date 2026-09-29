@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth.js';
-import { db } from '../db.js';
+import { query, queryOne } from '../db.js';
 
 const router = Router();
 
-router.get('/dashboard', authMiddleware, (req: AuthRequest, res) => {
+router.get('/dashboard', authMiddleware, async (req: AuthRequest, res) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayTs = today.getTime();
@@ -17,41 +17,41 @@ router.get('/dashboard', authMiddleware, (req: AuthRequest, res) => {
   monthAgo.setMonth(monthAgo.getMonth() - 1);
   const monthAgoTs = monthAgo.getTime();
 
-  const todayStats = db.prepare(`
+  const todayStats = await queryOne(`
     SELECT 
       COUNT(*) as count,
       COALESCE(SUM(distance), 0) as distance,
       COALESCE(SUM(duration), 0) as duration
     FROM activities 
-    WHERE user_id = ? AND started_at >= ?
-  `).get(req.userId, todayTs) as any;
+    WHERE user_id = $1 AND started_at >= $2
+  `, [req.userId, todayTs]) as any;
 
-  const weekStats = db.prepare(`
+  const weekStats = await queryOne(`
     SELECT 
       COUNT(*) as count,
       COALESCE(SUM(distance), 0) as distance,
       COALESCE(SUM(duration), 0) as duration,
       COALESCE(AVG(avg_speed), 0) as avg_speed
     FROM activities 
-    WHERE user_id = ? AND started_at >= ?
-  `).get(req.userId, weekAgoTs) as any;
+    WHERE user_id = $1 AND started_at >= $2
+  `, [req.userId, weekAgoTs]) as any;
 
-  const monthStats = db.prepare(`
+  const monthStats = await queryOne(`
     SELECT 
       COUNT(*) as count,
       COALESCE(SUM(distance), 0) as distance,
       COALESCE(SUM(duration), 0) as duration,
       COALESCE(AVG(avg_speed), 0) as avg_speed
     FROM activities 
-    WHERE user_id = ? AND started_at >= ?
-  `).get(req.userId, monthAgoTs) as any;
+    WHERE user_id = $1 AND started_at >= $2
+  `, [req.userId, monthAgoTs]) as any;
 
-  const recentActivities = db.prepare(`
+  const recentActivities = await query(`
     SELECT * FROM activities 
-    WHERE user_id = ? 
+    WHERE user_id = $1 
     ORDER BY started_at DESC 
     LIMIT 5
-  `).all(req.userId);
+  `, [req.userId]);
 
   res.json({
     today: todayStats,
@@ -61,7 +61,7 @@ router.get('/dashboard', authMiddleware, (req: AuthRequest, res) => {
   });
 });
 
-router.get('/trends', authMiddleware, (req: AuthRequest, res) => {
+router.get('/trends', authMiddleware, async (req: AuthRequest, res) => {
   const { period = 'week' } = req.query;
   
   const days = period === 'month' ? 30 : 7;
@@ -69,17 +69,17 @@ router.get('/trends', authMiddleware, (req: AuthRequest, res) => {
   startDate.setDate(startDate.getDate() - days);
   const startTs = startDate.getTime();
 
-  const dailyStats = db.prepare(`
+  const dailyStats = await query(`
     SELECT 
-      DATE(started_at / 1000, 'unixepoch') as date,
+      TO_CHAR(TO_TIMESTAMP(started_at / 1000), 'YYYY-MM-DD') as date,
       COUNT(*) as count,
       SUM(distance) as distance,
       SUM(duration) as duration
     FROM activities 
-    WHERE user_id = ? AND started_at >= ?
+    WHERE user_id = $1 AND started_at >= $2
     GROUP BY date
     ORDER BY date
-  `).all(req.userId, startTs);
+  `, [req.userId, startTs]);
 
   res.json(dailyStats);
 });

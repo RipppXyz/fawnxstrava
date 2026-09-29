@@ -1,27 +1,27 @@
 import { Router } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth.js';
-import { db } from '../db.js';
+import { query } from '../db.js';
 
 const router = Router();
 
-router.get('/', authMiddleware, (req: AuthRequest, res) => {
-  const achievements = db.prepare(`
+router.get('/', authMiddleware, async (req: AuthRequest, res) => {
+  const achievements = await query(`
     SELECT a.*, ua.unlocked_at
     FROM achievements a
-    LEFT JOIN user_achievements ua ON a.id = ua.achievement_id AND ua.user_id = ?
+    LEFT JOIN user_achievements ua ON a.id = ua.achievement_id AND ua.user_id = $1
     ORDER BY a.id
-  `).all(req.userId);
+  `, [req.userId]);
 
   res.json(achievements);
 });
 
-router.get('/:userId', authMiddleware, (req: AuthRequest, res) => {
-  const achievements = db.prepare(`
+router.get('/:userId', authMiddleware, async (req: AuthRequest, res) => {
+  const achievements = await query(`
     SELECT a.*, ua.unlocked_at
     FROM achievements a
-    LEFT JOIN user_achievements ua ON a.id = ua.achievement_id AND ua.user_id = ?
+    LEFT JOIN user_achievements ua ON a.id = ua.achievement_id AND ua.user_id = $1
     ORDER BY a.id
-  `).all(req.params.userId);
+  `, [req.params.userId]);
 
   res.json(achievements);
 });

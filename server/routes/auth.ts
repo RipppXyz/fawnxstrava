@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { db } from '../db.js';
+import { queryOne, execute } from '../db.js';
 
 const router = Router();
 
@@ -21,19 +21,20 @@ router.post('/register', async (req, res) => {
     const now = Date.now();
 
     try {
-      const result = db.prepare(
-        'INSERT INTO users (username, email, password, display_name, created_at) VALUES (?, ?, ?, ?, ?)'
-      ).run(username, email, hashedPassword, displayName || username, now);
+      const result = await execute(
+        'INSERT INTO users (username, email, password, display_name, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+        [username, email, hashedPassword, displayName || username, now]
+      );
 
-      const userId = result.lastInsertRowid as number;
+      const userId = result.rows[0].id;
 
-      db.prepare('INSERT INTO settings (user_id) VALUES (?)').run(userId);
+      await execute('INSERT INTO settings (user_id) VALUES ($1)', [userId]);
 
       const token = jwt.sign({ userId }, process.env.JWT_SECRET || 'dev-secret-key', { expiresIn: '30d' });
 
       res.json({ token, userId, username });
     } catch (err: any) {
-      if (err.code === 'SQLITE_CONSTRAINT') {
+      if (err.code === '23505') {
         return res.status(400).json({ error: 'Username or email already exists' });
       }
       throw err;
@@ -52,7 +53,7 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Missing username or password' });
     }
 
-    const user = db.prepare('SELECT * FROM users WHERE username = ? OR email = ?').get(username, username) as any;
+    const user = await queryOne('SELECT * FROM users WHERE username = $1 OR email = $1', [username]);
 
     if (!user) {
       return res.status(401).json({ error: 'Invalid credentials' });

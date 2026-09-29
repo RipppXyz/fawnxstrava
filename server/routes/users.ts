@@ -1,93 +1,93 @@
 import { Router } from 'express';
 import { authMiddleware, AuthRequest } from '../middleware/auth.js';
-import { db } from '../db.js';
+import { query, queryOne, execute } from '../db.js';
 
 const router = Router();
 
-router.get('/me', authMiddleware, (req: AuthRequest, res) => {
-  const user = db.prepare('SELECT id, username, email, display_name, bio, avatar, created_at FROM users WHERE id = ?').get(req.userId) as any;
+router.get('/me', authMiddleware, async (req: AuthRequest, res) => {
+  const user = await queryOne('SELECT id, username, email, display_name, bio, avatar, created_at FROM users WHERE id = $1', [req.userId]);
   
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
 
-  const stats = db.prepare(`
+  const stats = await queryOne(`
     SELECT 
       COUNT(*) as activities_count,
       COALESCE(SUM(distance), 0) as total_distance,
       COALESCE(SUM(duration), 0) as total_duration
-    FROM activities WHERE user_id = ?
-  `).get(req.userId) as any;
+    FROM activities WHERE user_id = $1
+  `, [req.userId]);
 
-  const followersCount = db.prepare('SELECT COUNT(*) as count FROM followers WHERE following_id = ?').get(req.userId) as any;
-  const followingCount = db.prepare('SELECT COUNT(*) as count FROM followers WHERE follower_id = ?').get(req.userId) as any;
+  const followersCount = await queryOne('SELECT COUNT(*) as count FROM followers WHERE following_id = $1', [req.userId]);
+  const followingCount = await queryOne('SELECT COUNT(*) as count FROM followers WHERE follower_id = $1', [req.userId]);
 
   res.json({
     ...user,
     stats: {
-      activities: stats.activities_count,
-      distance: stats.total_distance,
-      duration: stats.total_duration,
-      followers: followersCount.count,
-      following: followingCount.count
+      activities: parseInt(stats.activities_count),
+      distance: parseFloat(stats.total_distance),
+      duration: parseInt(stats.total_duration),
+      followers: parseInt(followersCount.count),
+      following: parseInt(followingCount.count)
     }
   });
 });
 
-router.get('/:id', authMiddleware, (req: AuthRequest, res) => {
-  const user = db.prepare('SELECT id, username, display_name, bio, avatar, created_at FROM users WHERE id = ?').get(req.params.id) as any;
+router.get('/:id', authMiddleware, async (req: AuthRequest, res) => {
+  const user = await queryOne('SELECT id, username, display_name, bio, avatar, created_at FROM users WHERE id = $1', [req.params.id]);
   
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
 
-  const stats = db.prepare(`
+  const stats = await queryOne(`
     SELECT 
       COUNT(*) as activities_count,
       COALESCE(SUM(distance), 0) as total_distance,
       COALESCE(SUM(duration), 0) as total_duration
-    FROM activities WHERE user_id = ?
-  `).get(req.params.id) as any;
+    FROM activities WHERE user_id = $1
+  `, [req.params.id]);
 
-  const followersCount = db.prepare('SELECT COUNT(*) as count FROM followers WHERE following_id = ?').get(req.params.id) as any;
-  const followingCount = db.prepare('SELECT COUNT(*) as count FROM followers WHERE follower_id = ?').get(req.params.id) as any;
-  const isFollowing = db.prepare('SELECT id FROM followers WHERE follower_id = ? AND following_id = ?').get(req.userId, req.params.id);
+  const followersCount = await queryOne('SELECT COUNT(*) as count FROM followers WHERE following_id = $1', [req.params.id]);
+  const followingCount = await queryOne('SELECT COUNT(*) as count FROM followers WHERE follower_id = $1', [req.params.id]);
+  const isFollowing = await queryOne('SELECT id FROM followers WHERE follower_id = $1 AND following_id = $2', [req.userId, req.params.id]);
 
   res.json({
     ...user,
     stats: {
-      activities: stats.activities_count,
-      distance: stats.total_distance,
-      duration: stats.total_duration,
-      followers: followersCount.count,
-      following: followingCount.count
+      activities: parseInt(stats.activities_count),
+      distance: parseFloat(stats.total_distance),
+      duration: parseInt(stats.total_duration),
+      followers: parseInt(followersCount.count),
+      following: parseInt(followingCount.count)
     },
     isFollowing: !!isFollowing
   });
 });
 
-router.put('/me', authMiddleware, (req: AuthRequest, res) => {
+router.put('/me', authMiddleware, async (req: AuthRequest, res) => {
   const { displayName, bio, avatar } = req.body;
 
-  db.prepare('UPDATE users SET display_name = ?, bio = ?, avatar = ? WHERE id = ?')
-    .run(displayName, bio, avatar, req.userId);
+  await execute('UPDATE users SET display_name = $1, bio = $2, avatar = $3 WHERE id = $4',
+    [displayName, bio, avatar, req.userId]);
 
   res.json({ success: true });
 });
 
-router.get('/search', authMiddleware, (req: AuthRequest, res) => {
+router.get('/search', authMiddleware, async (req: AuthRequest, res) => {
   const { q } = req.query;
   
   if (!q || typeof q !== 'string') {
     return res.json([]);
   }
 
-  const users = db.prepare(`
+  const users = await query(`
     SELECT id, username, display_name, avatar 
     FROM users 
-    WHERE username LIKE ? OR display_name LIKE ?
+    WHERE username ILIKE $1 OR display_name ILIKE $1
     LIMIT 20
-  `).all(`%${q}%`, `%${q}%`);
+  `, [`%${q}%`]);
 
   res.json(users);
 });
