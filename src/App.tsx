@@ -1,8 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import Landing from './pages/Landing';
-import Login from './pages/Login';
-import Register from './pages/Register';
+import { AuthProvider } from './contexts/AuthContext';
 import Dashboard from './pages/Dashboard';
 import Track from './pages/Track';
 import Activities from './pages/Activities';
@@ -15,35 +12,24 @@ import Social from './pages/Social';
 import Search from './pages/Search';
 import Stats from './pages/Stats';
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated, loading } = useAuth();
-  
-  if (loading) return <div className="loading">Loading...</div>;
-  
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
-};
-
 function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/track" element={<ProtectedRoute><Track /></ProtectedRoute>} />
-          <Route path="/activities" element={<ProtectedRoute><Activities /></ProtectedRoute>} />
-          <Route path="/activities/:id" element={<ProtectedRoute><ActivityDetail /></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/profile/:id" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-          <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
-          <Route path="/social" element={<ProtectedRoute><Social /></ProtectedRoute>} />
-          <Route path="/search" element={<ProtectedRoute><Search /></ProtectedRoute>} />
-          <Route path="/stats" element={<ProtectedRoute><Stats /></ProtectedRoute>} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/track" element={<Track />} />
+          <Route path="/activities" element={<Activities />} />
+          <Route path="/activities/:id" element={<ActivityDetail />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/profile/:id" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/achievements" element={<Achievements />} />
+          <Route path="/social" element={<Social />} />
+          <Route path="/search" element={<Search />} />
+          <Route path="/stats" element={<Stats />} />
         </Routes>
       </AuthProvider>
     </BrowserRouter>
